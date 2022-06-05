@@ -21,7 +21,7 @@ namespace LordAshes
         // Plugin info
         public const string Name = "GM Info Plug-In";
         public const string Guid = "org.lordashes.plugins.gminfo";
-        public const string Version = "1.0.0.0";
+        public const string Version = "2.0.0.0";
 
         // Configuration
         private ConfigEntry<KeyboardShortcut> triggerKey { get; set; }
@@ -55,7 +55,7 @@ namespace LordAshes
             }
 
             // Add Info menu selection to main character menu
-            RadialUI.RadialUIPlugin.AddOnSubmenuGm(LordAshes.GMInfoPlugin.Guid, new MapMenu.ItemArgs()
+            RadialUI.RadialUIPlugin.AddCustomButtonGMSubmenu(LordAshes.GMInfoPlugin.Guid, new MapMenu.ItemArgs()
             {
                 Action = (a, b) => { SetRequest(radialCreadureId); },
                 Title = "Info",
@@ -66,7 +66,7 @@ namespace LordAshes
             StatMessaging.Subscribe(GMInfoPlugin.Guid, HandleRequest);
 
             // Post plugin on the TaleSpire main page
-            StateDetection.Initialize(this.GetType());
+            Utility.Initialize(this.GetType());
         }
 
         private Boolean recordSelection(NGuid selectedCreature, NGuid creatureTargetedFromRadial)
@@ -92,7 +92,7 @@ namespace LordAshes
                 {
                     try
                     {
-                        GameObject creatureBlock = GameObject.Find(asset.Creature.CreatureId + ".GMInfoBlock");
+                        GameObject creatureBlock = GameObject.Find(asset.CreatureId + ".GMInfoBlock");
                         if (creatureBlock != null)
                         {
                             creatureBlock.transform.rotation = Quaternion.LookRotation(creatureBlock.transform.position - Camera.main.transform.position);
@@ -110,7 +110,7 @@ namespace LordAshes
                     CreatureBoardAsset asset;
                     CreaturePresenter.TryGetAsset(tempChange.cid, out asset);
 
-                    if (asset.CreatureLoaders[0].LoadedAsset == null) //still not ready
+                    if (Utility.GetAssetObject(asset.CreatureId) == null) //still not ready
                     {
                         break;
                     }
@@ -152,10 +152,10 @@ namespace LordAshes
                             {
                                 case StatMessaging.ChangeType.added:
                                 case StatMessaging.ChangeType.modified:
-                                    GameObject creatureBlock = GameObject.Find(asset.Creature.CreatureId + ".GMInfoBlock");
+                                    GameObject creatureBlock = GameObject.Find(asset.CreatureId + ".GMInfoBlock");
                                     if (creatureBlock == null)
                                     {
-                                        if (asset.CreatureLoaders[0].LoadedAsset != null)
+                                        if (Utility.GetAssetObject(asset.CreatureId) != null)
                                         {
                                             createNewCreatureStateText(out creatureStateText, out creatureBlock, asset);
                                         }
@@ -176,7 +176,7 @@ namespace LordAshes
 
                                 case StatMessaging.ChangeType.removed:
                                     Debug.Log("Removing States Block for creature '" + change.cid + "'");
-                                    GameObject.Destroy(GameObject.Find(asset.Creature.CreatureId + ".GMInfoBlock"));
+                                    GameObject.Destroy(GameObject.Find(asset.CreatureId + ".GMInfoBlock"));
                                     break;
                             }
                         }
@@ -190,7 +190,7 @@ namespace LordAshes
         {
             Debug.Log("Creating CreatureBlock GameObject");
 
-            if (GameObject.Find(asset.Creature.CreatureId + ".GMInfoBlock") != null)
+            if (GameObject.Find(asset.CreatureId + ".GMInfoBlock") != null)
             {
                 Debug.Log("StatesText already exists.  Ignoring duplicate");
                 creatureStateText = null;
@@ -198,10 +198,10 @@ namespace LordAshes
                 return; //we have a duplicate
             }
 
-            creatureBlock = new GameObject(asset.Creature.CreatureId + ".GMInfoBlock");
-            creatureBlock.transform.position = new Vector3(asset.CreatureLoaders[0].LoadedAsset.transform.position.x, calculateYMax(asset), asset.CreatureLoaders[0].LoadedAsset.transform.position.z); ;
+            creatureBlock = new GameObject(asset.CreatureId + ".GMInfoBlock");
+            creatureBlock.transform.position = new Vector3(Utility.GetAssetObject(asset.CreatureId).transform.position.x, calculateYMax(asset), Utility.GetAssetObject(asset.CreatureId).transform.position.z); ;
             creatureBlock.transform.rotation = Quaternion.LookRotation(creatureBlock.transform.position - Camera.main.transform.position);
-            creatureBlock.transform.SetParent(asset.CreatureLoaders[0].LoadedAsset.transform);
+            creatureBlock.transform.SetParent(Utility.GetAssetObject(asset.CreatureId).transform);
 
             Debug.Log("Creating TextMeshPro");
             creatureStateText = creatureBlock.AddComponent<TextMeshPro>();
@@ -235,15 +235,15 @@ namespace LordAshes
 
             creatureStateText.text = content;
             creatureStateText.autoSizeTextContainer = true;
-            creatureStateText.transform.position = new Vector3(asset.CreatureLoaders[0].LoadedAsset.transform.position.x, calculateYMax(asset) + creatureStateText.preferredHeight, asset.CreatureLoaders[0].LoadedAsset.transform.position.z);
+            creatureStateText.transform.position = new Vector3(Utility.GetAssetObject(asset.CreatureId).transform.position.x, calculateYMax(asset) + creatureStateText.preferredHeight, Utility.GetAssetObject(asset.CreatureId).transform.position.z);
         }
 
         private float calculateYMax(CreatureBoardAsset asset)
         {
             float yMax = 0;
-            yMax = asset.CreatureLoaders[0].LoadedAsset.GetComponent<MeshRenderer>().bounds.max.y;
+            yMax = Utility.GetAssetObject(asset.CreatureId).GetComponent<MeshRenderer>().bounds.max.y;
 
-            GameObject cmpGO = GameObject.Find("CustomContent:" + asset.Creature.CreatureId);
+            GameObject cmpGO = GameObject.Find("CustomContent:" + asset.CreatureId);
             if (cmpGO != null)
             {
                 SkinnedMeshRenderer tempSMR = cmpGO.GetComponentInChildren<SkinnedMeshRenderer>();
@@ -265,15 +265,15 @@ namespace LordAshes
             CreaturePresenter.TryGetAsset(cid, out asset);
             if (asset != null)
             {
-                string states = StatMessaging.ReadInfo(asset.Creature.CreatureId, GMInfoPlugin.Guid);
+                string states = StatMessaging.ReadInfo(asset.CreatureId, GMInfoPlugin.Guid);
 
                 SystemMessage.AskForTextInput("State", "Enter Creature State(s):", "OK", (newStates) =>
                 {
-                    StatMessaging.SetInfo(asset.Creature.CreatureId, GMInfoPlugin.Guid, newStates);
+                    StatMessaging.SetInfo(asset.CreatureId, GMInfoPlugin.Guid, newStates);
                 },
                 null, "Clear", () =>
                 {
-                    StatMessaging.ClearInfo(asset.Creature.CreatureId, GMInfoPlugin.Guid);
+                    StatMessaging.ClearInfo(asset.CreatureId, GMInfoPlugin.Guid);
                 },
                 states);
             }
